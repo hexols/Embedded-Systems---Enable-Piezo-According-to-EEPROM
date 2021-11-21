@@ -1,0 +1,156 @@
+byte counter;
+void setup(){
+ asm(
+   
+   /* defining port registers etc */
+   
+    ".EQU DDRD,0x0A\n"
+    ".EQU DDRB,0x04\n"
+    ".EQU PIND,0x09\n"
+    ".EQU PINB,0x03\n"
+    ".EQU PORTD,0x0B\n"
+    ".EQU PORTB,0x05\n"
+   
+   /* defining EEPROM registers */
+   
+    ".EQU EECR,0x1F\n"
+    ".EQU EEDR,0x20\n"
+    ".EQU EEARL,0x21\n"
+    ".EQU EEARH,0x22\n"
+    
+    ".EQU EERE,0\n"
+    ".EQU EEWE,1\n"
+    ".EQU EEMWE,2\n"
+   
+   /* defining interrupt registers */
+    
+    ".EQU TCCR0A, 0x24 \n"
+    ".EQU TCCR0B, 0x25 \n"
+    ".EQU TCNT0, 0x26 \n"
+    ".EQU TIMSK0, 0x6E \n"
+	".EQU TOIE0, 0x0 \n"
+    ".EQU PCMSK1, 0x6C  \n"
+   ".EQU PCMSK0, 0x6B  \n"
+    ".EQU PCIFR, 0x1B \n"
+	".EQU PCICR,0x68  \n"
+   
+   /* handling interrupts */
+   
+    "LDI R18,0B00000101\n"
+    "OUT TCCR0B,R18\n"
+    
+    "LDI R18,0B00000000\n"
+    "OUT TCCR0A,R18\n"
+    
+    "LDI R18,0B00000001\n"
+    "STS TIMSK0,R18\n"
+   
+   /* defining input and output pins */
+   
+   	"LDI R18,0B00000100\n"
+   	"OUT DDRD,R18\n"
+   
+   	"LDI R18,0B00000000\n"
+   	"OUT DDRB,R18\n"
+   
+   /* handling pin change interrupt registers */
+   
+   	"LDI R18,0B00000101\n"
+   	"STS PCICR,R18\n"
+   
+   	"LDI R18,0B00001000\n"
+   	"STS PCMSK0,R18\n"
+   
+   	"LDI R18,0B00000001\n"
+   	"STS PCMSK1,R18\n"
+   
+   	"LDI R18,0B00000101\n"
+   	"STS PCIFR,R18\n"
+   
+   );
+}
+void loop()
+{
+  asm(
+
+    "LDI R21,0x01\n" /* EEPROM ADDRESS SPACE */
+    "LDI R20,0x3A\n"
+    
+    "OUT EEARL, R20\n" /* STORING ADDRESS VALUE INTO EEPROM */
+    "OUT EEARH, R21\n"
+      
+    "SBI EECR,EERE\n"	/* read enable */
+    "IN R22,EEDR\n" /* READING THE COUNTER OF EEPROM */
+
+    "IN R16,PIND\n" /* FOR PIR SENSOR CHANGES */
+    "LSR R16\n"
+    "LSR R16\n"
+    "LSR R16\n"
+
+    "CPI R16,1\n" /* IF R16=1 THEN THIS MEANS THAT SENSOR IS TRIGGERED*/
+   	"BREQ sensor\n"
+    /* interrupt */
+    "RJMP continue\n"
+    
+    "sensor:\n"
+    
+      "LDI R28,0B000001000\n" /*The state of PIN3 changes*/
+      "OUT PORTD,R28\n"
+      "SEI\n"
+
+    "continue:\n"
+    
+    "IN R17,PINB\n"	/*FOR PUSHBUTTON CHANGES */
+    "CPI R17,1\n"/* IF R17=1 THEN THIS MEANS THAT BUTTON IS PRESSED*/
+    "BREQ button\n"
+    "RJMP end1\n"
+    /* interrupt */
+    
+    "button:\n"
+      "LDI R28,0B00000001\n" /*The state of PIN8 changes */
+      "OUT PORTB,R28\n"
+      "SEI\n"
+      "end1:\n"
+    
+    	  	"OUT EEDR,R22\n"
+    		"SBI EECR,EEMWE\n"
+    		"SBI EECR, EEWE\n"
+
+          	"while:\n"
+          		"RJMP while\n"
+	);
+  Serial.println("Is it working?");
+}
+ISR(PCINT2_vect)/* PIR SENSOR INTERRUPT */
+{
+ 	asm(
+      /*  Turns on the piezo */
+      "LDI R28,0B00000100\n"
+      "OUT PORTD,R28\n"
+      
+      /* Increments the counter in the EEPROM */
+      "INC R22\n"
+
+      /* Prints out a message to the serial monitor that warns the householder */
+      "MOV %0,R22\n"
+      :"=r"(counter)
+      
+      /* Prints out a message to the serial monitor that states how many times the alarm was triggered */
+    	
+    );
+  Serial.println("ALARM!!!");
+  Serial.print("Alarm was triggered ");
+  Serial.print(String(counter));
+  Serial.println(" times");
+}
+
+ISR(PCINT0_vect){
+  
+  asm(
+   /*  Turns off the piezo */
+        
+      "LDI R28,0B00000000\n"
+      "OUT PORTD,R28\n"    	
+    );
+  Serial.println("Alarm turned off");
+}
