@@ -1,1 +1,3 @@
-# Embedded-Systems---Enable-Piezo-According-to-EEPROM
+This code is written in AVR Assembly language.
+An EEPROM holds the number of counter that is present in the system. Each time PIR detects a motion, then PIN3 state changes and interrupt is triggered by that. This interrupt helps the EEPROM to increment the counter and print messages to the serial monitor and also it turns on the piezo. Every time the button is pushed, then PIN8's state changes and an interrupt is triggered. This time, the interrupt helps to turns of the piezo. The code can be simulated in TinkerCad.
+![image](https://user-images.githubusercontent.com/51203514/142779000-c53237a8-33d3-4f3a-a461-75c6b8169bf3.png)
